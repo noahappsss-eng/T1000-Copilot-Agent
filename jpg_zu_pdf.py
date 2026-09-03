@@ -1,30 +1,32 @@
+import argparse
 from pathlib import Path
+
 from PIL import Image
 
-# Hauptordner Pfad
-hauptordner = Path(r"\\hau-drive\hau-drive\_transfers\_public\Obertscheider D\NOAH\Variantenanträge")
 
-# Unterstützte Dateiendungen
-endungen = [".jpg", ".jpeg"]
+ENDUNGEN = {".jpg", ".jpeg"}
 
-anzahl = 0
-fehler = []
 
-for datei in hauptordner.rglob("*"):
-    if datei.is_file() and datei.suffix.lower() in endungen:
+def konvertiere_bilder(hauptordner: Path) -> tuple[int, list[str]]:
+    anzahl = 0
+    fehler = []
+
+    for datei in hauptordner.rglob("*"):
+        if not datei.is_file() or datei.suffix.lower() not in ENDUNGEN:
+            continue
+
         try:
             pdf_pfad = datei.with_suffix(".pdf")
 
-            # Falls schon eine PDF mit gleichem Namen existiert, überspringen
+            # Falls schon eine PDF mit gleichem Namen existiert, überspringen.
             if pdf_pfad.exists():
                 print(f"Übersprungen, PDF existiert bereits: {pdf_pfad}")
                 continue
 
-            with Image.open(datei) as img:
-                img = img.convert("RGB")
-                img.save(pdf_pfad, "PDF", resolution=100.0)
+            with Image.open(datei) as bild:
+                bild.convert("RGB").save(pdf_pfad, "PDF", resolution=100.0)
 
-            # Nur löschen, wenn PDF erfolgreich erstellt wurde
+            # Nur löschen, wenn die PDF erfolgreich erstellt wurde.
             if pdf_pfad.exists() and pdf_pfad.stat().st_size > 0:
                 datei.unlink()
                 print(f"Ersetzt: {datei} -> {pdf_pfad}")
@@ -32,13 +34,36 @@ for datei in hauptordner.rglob("*"):
             else:
                 fehler.append(str(datei))
 
-        except Exception as e:
-            fehler.append(f"{datei} | Fehler: {e}")
+        except Exception as error:
+            fehler.append(f"{datei} | Fehler: {error}")
 
-print()
-print(f"Fertig. Ersetzte Dateien: {anzahl}")
+    return anzahl, fehler
 
-if fehler:
-    print("\nFehler bei folgenden Dateien:")
-    for f in fehler:
-        print(f)
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="JPG- und JPEG-Dateien rekursiv in PDF-Dateien umwandeln."
+    )
+    parser.add_argument(
+        "hauptordner",
+        type=Path,
+        help="Pfad zu dem Ordner, der rekursiv durchsucht werden soll",
+    )
+    args = parser.parse_args()
+
+    if not args.hauptordner.is_dir():
+        parser.error(f"Ordner nicht gefunden: {args.hauptordner}")
+
+    anzahl, fehler = konvertiere_bilder(args.hauptordner)
+
+    print()
+    print(f"Fertig. Ersetzte Dateien: {anzahl}")
+
+    if fehler:
+        print("\nFehler bei folgenden Dateien:")
+        for eintrag in fehler:
+            print(eintrag)
+
+
+if __name__ == "__main__":
+    main()
